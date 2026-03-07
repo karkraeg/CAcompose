@@ -1,0 +1,14 @@
+# TLS certificates — never commit private keys
+nginx/certs/*.crt
+nginx/certs/*.key
+nginx/certs/*.pem
+
+# Local media uploads
+media/*
+!media/.gitkeep
+
+# Environment file with real credentials
+# (keep .env.example instead if you have one)
+.env
+
+.claude/
