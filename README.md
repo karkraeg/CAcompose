@@ -81,6 +81,18 @@ open https://127.0.0.1/backend/install/   # Providence first
 └── media/                        # shared media directory (MEDIA_PATH)
 ```
 
+## Custom installation profile
+
+The CA installer lets you choose a **profile** (an XML file defining the initial data model, lists, and UI) when setting up Providence for the first time. To use a custom profile, place it in:
+
+```
+overrides/providence/install/profiles/xml/your-profile.xml
+```
+
+The entrypoint copies it into the container on every start, so it will appear in the installer's profile dropdown without a rebuild. Run the installer at `https://host/backend/install/`, select your profile, and proceed normally.
+
+Profiles only affect the initial install — once the database is set up the file has no further effect.
+
 ## Documentation
 
 See **[Documentation.md](Documentation.md)** for the full reference:
