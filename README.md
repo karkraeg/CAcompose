@@ -23,15 +23,16 @@ $EDITOR .env
 # 2. Generate a self-signed TLS certificate for local HTTPS
 ./generate-dev-certs.sh
 
-# 3. Create the media directory
-mkdir -p ./media
+# 3. Create required host directories
+mkdir -p ./media ./import \
+         data/providence/log data/providence/tmp \
+         data/pawtucket2/log data/pawtucket2/tmp
 
 # 4. Build and start  (~20-40 min first time — Composer installs for both apps)
 docker compose up --build -d
 
 # 5. Run the web installers
 open https://127.0.0.1/backend/install/   # Providence first
-open https://127.0.0.1/install/           # then Pawtucket2
 ```
 
 ## Key features
@@ -40,6 +41,9 @@ open https://127.0.0.1/install/           # then Pawtucket2
 - **File override system** — replace any app file (config, plugin, template) by placing it under `overrides/providence/` or `overrides/pawtucket2/`, mirroring the app directory structure. Applied on every container start, no rebuild.
 - **Custom themes** — drop a theme folder into `overrides/pawtucket2/themes/` and set `CA_PAWTUCKET2_THEME=<name>` in `.env`.
 - **External media directory** — both containers mount the same host path (`MEDIA_PATH` in `.env`) so uploaded files are shared. Supports local directories, NFS, or S3 via `s3fs`.
+- **Persistent logs and tmp** — `app/log/` and `app/tmp/` for both apps are bind-mounted under `data/` on the host, surviving container rebuilds.
+- **Batch media import** — drop files into `./import/` (configurable via `IMPORT_PATH`) and they appear in Providence's media importer.
+- **Umami analytics** — opt-in self-hosted analytics via `docker compose --profile analytics up -d`.
 - **Development HTTPS** — `./generate-dev-certs.sh` creates a self-signed cert with correct SAN for `127.0.0.1`/`localhost`. HTTP on `:80` auto-redirects to HTTPS on `:443`.
 - **Production-ready routing** — Nginx uses Docker's internal DNS resolver with variable-based `proxy_pass` to avoid startup race conditions.
 
@@ -66,6 +70,14 @@ open https://127.0.0.1/install/           # then Pawtucket2
 │   └── pawtucket2/
 │       ├── app/conf/             # e.g. app.conf
 │       └── themes/               # custom themes
+├── data/
+│   ├── providence/
+│   │   ├── log/                  # CA application logs (bind-mounted)
+│   │   └── tmp/                  # sessions, upload staging, file cache
+│   └── pawtucket2/
+│       ├── log/
+│       └── tmp/
+├── import/                       # batch media import staging (IMPORT_PATH)
 └── media/                        # shared media directory (MEDIA_PATH)
 ```
 
@@ -76,6 +88,9 @@ See **[Documentation.md](Documentation.md)** for the full reference:
 - Configuration variable reference
 - How the file override system works
 - Adding a custom InformationService plugin
+- Runtime data directories (logs, tmp, import)
+- Batch media import staging
+- Umami analytics opt-in
 - Production deployment (external nginx + Let's Encrypt, or Certbot in Docker)
 - Database backup / restore
 - caUtils CLI examples
