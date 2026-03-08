@@ -7,6 +7,17 @@ nginx/certs/*.pem
 media/*
 !media/.gitkeep
 
+# Batch media import staging
+import/*
+!import/.gitkeep
+
+# Runtime data written by containers
+data/providence/log/*
+data/providence/tmp/*
+data/pawtucket2/log/*
+data/pawtucket2/tmp/*
+!data/**/.gitkeep
+
 # Environment file with real credentials
 # (keep .env.example instead if you have one)
 .env

@@ -24,12 +24,15 @@ Docker Compose setup for running **Providence** (backend admin) and **Pawtucket2
     - [Importing a dump](#importing-a-dump)
     - [Restore from backup](#restore-from-backup)
     - [Drop and recreate the database](#drop-and-recreate-the-database)
-12. [Production Deployment](#production-deployment)
+12. [Runtime Data Directories](#runtime-data-directories)
+13. [Batch Media Import](#batch-media-import)
+14. [Umami Analytics (opt-in)](#umami-analytics-opt-in)
+15. [Production Deployment](#production-deployment)
     - [External host nginx (recommended)](#external-host-nginx-recommended)
     - [SSL inside Docker with Certbot](#ssl-inside-docker-with-certbot)
     - [Production hardening checklist](#production-hardening-checklist)
-13. [Maintenance](#maintenance)
-14. [Troubleshooting](#troubleshooting)
+16. [Maintenance](#maintenance)
+17. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -1282,3 +1285,158 @@ Clean URLs are **disabled by default** (`__CA_USE_CLEAN_URLS__ = 0`). To enable:
    ```bash
    docker compose restart providence
    ```
+
+---
+
+## Runtime Data Directories
+
+Application logs and temporary files are written to **bind-mounted host directories** so they survive container rebuilds and are accessible from the host without `docker exec`.
+
+### Directory layout
+
+```
+data/
+├── providence/
+│   ├── log/    ← CA-level log files (not Apache access/error logs)
+│   └── tmp/    ← sessions, upload staging, file cache
+└── pawtucket2/
+    ├── log/
+    └── tmp/
+```
+
+These are created automatically the first time the containers start (the entrypoint runs `mkdir -p` on each path). You can also create them manually before first run:
+
+```bash
+mkdir -p data/providence/log data/providence/tmp \
+         data/pawtucket2/log data/pawtucket2/tmp
+```
+
+### Tailing logs
+
+```bash
+# CA application log (errors, warnings)
+tail -f data/providence/log/php_error.log
+
+# Apache access log (inside the container — not bind-mounted)
+docker compose logs -f providence
+```
+
+### Clearing the tmp cache
+
+If you see stale session or cache issues:
+
+```bash
+# Remove everything except .gitkeep
+find data/providence/tmp -mindepth 1 ! -name '.gitkeep' -delete
+find data/pawtucket2/tmp -mindepth 1 ! -name '.gitkeep' -delete
+docker compose restart providence pawtucket2
+```
+
+---
+
+## Batch Media Import
+
+Providence's **media importer** scans a staging directory for files to import in bulk. The default location inside the container is `/var/www/providence/import/`.
+
+### Configuration
+
+Set `IMPORT_PATH` in `.env` to any host directory you want to use as the staging area:
+
+```dotenv
+IMPORT_PATH=./import          # relative to docker-compose.yml (default)
+# or an absolute path:
+IMPORT_PATH=/mnt/nas/ca-import
+```
+
+The directory is bind-mounted read-write into the Providence container at `/var/www/providence/import/`. No `app.conf` override is needed — CA's default value for `batch_media_import_root_directory` already points to this path.
+
+### Workflow
+
+1. Drop files into `$IMPORT_PATH` (or the `./import/` folder):
+   ```bash
+   cp /path/to/images/*.jpg ./import/
+   ```
+
+2. In the Providence admin UI: **Media → Media importer → Import from directory**.
+
+3. The importer lists everything it finds under the staging directory. Select files and run the import job.
+
+### Tips
+
+- Sub-directories are supported — organize files into folders before importing.
+- Files are **not deleted** after import; remove them manually once done.
+- The import directory is mounted in Providence only (Pawtucket2 has no importer).
+
+---
+
+## Umami Analytics (opt-in)
+
+[Umami](https://umami.is/) is a self-hosted, privacy-friendly alternative to Google Analytics. It runs as two extra containers (`umami-db` + `umami`) and is completely isolated from the CollectiveAccess stack.
+
+### Starting Umami
+
+Umami uses a Docker Compose **profile** so it does not start by default:
+
+```bash
+# Start the full stack including Umami
+docker compose --profile analytics up -d
+
+# Or add Umami to an already-running stack
+docker compose --profile analytics up -d umami-db umami
+```
+
+Access the Umami UI at **http://127.0.0.1:3000**
+
+Default credentials: `admin` / `umami` — **change these on first login**.
+
+### Stopping Umami
+
+```bash
+docker compose --profile analytics stop umami umami-db
+```
+
+### Credentials
+
+Set these in `.env` before first start (the defaults are intentionally weak):
+
+```dotenv
+UMAMI_DB_PASSWORD=strong-random-password
+UMAMI_APP_SECRET=another-strong-random-secret
+```
+
+`APP_SECRET` is used to sign Umami's JWT session tokens. Changing it after first run invalidates all existing sessions.
+
+### Wiring up Pawtucket2
+
+1. In the Umami UI: **Settings → Websites → Add website** — enter your site's domain.
+2. Copy the generated `<script>` tag (Settings → Websites → Get tracking code).
+3. Paste it into your Pawtucket2 theme's footer template:
+   ```
+   overrides/pawtucket2/themes/default/views/pageFormat/pageFooter.tpl
+   ```
+   Example:
+   ```html
+   <script defer src="http://127.0.0.1:3000/script.js"
+           data-website-id="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></script>
+   ```
+   In production use the public Umami URL (behind your reverse proxy) instead of `127.0.0.1:3000`.
+4. Restart Pawtucket2 to apply the override:
+   ```bash
+   docker compose restart pawtucket2
+   ```
+
+### Exposing Umami publicly (production)
+
+Add a location block to your host nginx config:
+
+```nginx
+location /analytics/ {
+    proxy_pass http://127.0.0.1:3000/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+Then update the script tag to use `/analytics/script.js` instead of the direct port.

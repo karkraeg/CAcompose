@@ -20,9 +20,9 @@ if [ -d "$OVERRIDES_DIR" ] && [ -n "$(ls -A "$OVERRIDES_DIR" 2>/dev/null)" ]; th
 fi
 
 # ── Ensure writable directories exist ─────────────────────────────────────────
-mkdir -p "$APP_DIR/app/tmp" "$APP_DIR/media"
-chown -R www-data:www-data "$APP_DIR/app/tmp" "$APP_DIR/media"
-chmod -R 755 "$APP_DIR/app/tmp" "$APP_DIR/media"
+mkdir -p "$APP_DIR/app/tmp" "$APP_DIR/app/log" "$APP_DIR/media"
+chown -R www-data:www-data "$APP_DIR/app/tmp" "$APP_DIR/app/log" "$APP_DIR/media"
+chmod -R 755 "$APP_DIR/app/tmp" "$APP_DIR/app/log" "$APP_DIR/media"
 
 echo "[entrypoint] Starting Apache …"
 exec "$@"
