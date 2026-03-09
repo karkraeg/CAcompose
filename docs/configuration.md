@@ -162,3 +162,57 @@ find data/providence/tmp -mindepth 1 ! -name '.gitkeep' -delete
 find data/pawtucket2/tmp -mindepth 1 ! -name '.gitkeep' -delete
 docker compose restart providence pawtucket2
 ```
+
+---
+
+## Override Files
+
+The `overrides/` directory allows you to replace **any file** in the Providence or Pawtucket2 containers at runtime without rebuilding the Docker image. This is useful for:
+
+- Development and testing configuration changes
+- Environment-specific customization
+- Quick fixes and patches
+
+### How it works
+
+At container startup, the `docker-entrypoint.sh` script copies files from the override directory into the container:
+
+```
+overrides/providence/app/conf/app.conf  → /var/www/providence/app/conf/app.conf
+overrides/providence/setup.php          → /var/www/providence/setup.php
+overrides/providence/.htaccess          → /var/www/providence/.htaccess
+overrides/pawtucket2/themes/mytheme/    → /var/www/pawtucket2/themes/mytheme/
+```
+
+Changes take effect immediately on `docker compose restart` — **no rebuild required**.
+
+### SSL and reverse proxy configuration
+
+**Important:** When running behind an SSL-terminating reverse proxy (like in this setup), Providence needs special configuration to generate correct HTTPS URLs and avoid redirect loops.
+
+This is documented in detail in the [Production Deployment](production.md#required-collectiveaccess-ssl-configuration) guide, which covers both the quick override approach and the production image-baking approach.
+
+**Quick summary for development:**
+- Create `overrides/providence/setup.php` with `__CA_SITE_PROTOCOL__` and `__CA_URL_ROOT__` settings
+- Create `overrides/providence/.htaccess` with `RewriteBase /backend`
+- Restart: `docker compose restart providence`
+
+See [production.md](production.md#required-collectiveaccess-ssl-configuration) for full instructions and production deployment recommendations.
+
+### Example: Custom app.conf
+
+To override `app.conf`:
+
+```bash
+# Copy the default from the container
+docker compose exec providence cat /var/www/providence/app/conf/app.conf \
+  > overrides/providence/app/conf/app.conf
+
+# Edit it
+vim overrides/providence/app/conf/app.conf
+
+# Restart to apply
+docker compose restart providence
+```
+
+**Caution:** Overriding core config files means you must manually merge upstream changes when upgrading CollectiveAccess versions.

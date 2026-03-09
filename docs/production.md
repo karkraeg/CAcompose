@@ -4,6 +4,101 @@ The default configuration uses a self-signed certificate suited for local develo
 
 ---
 
+## Required: CollectiveAccess SSL Configuration
+
+**Before deploying to production**, you must configure CollectiveAccess to work correctly behind an SSL-terminating reverse proxy. Without these settings, you'll encounter "too many redirects" errors.
+
+### Option 1: Use overrides (quick development/testing)
+
+Create these two override files that apply on container restart without rebuilding:
+
+**File:** `overrides/providence/setup.php`
+
+```php
+<?php
+# (copy the entire setup.php from providence/setup.php and add these lines)
+
+# Protocol (http or https)
+# When running behind a reverse proxy with SSL termination, set this to https
+if (!defined('__CA_SITE_PROTOCOL__')) { define('__CA_SITE_PROTOCOL__', 'https'); }
+
+# URL root path (the subdirectory under which CA is served)
+# Since Providence is served under /backend/ via nginx proxy, set this explicitly
+if (!defined('__CA_URL_ROOT__')) { define('__CA_URL_ROOT__', '/backend'); }
+```
+
+**File:** `overrides/providence/.htaccess`
+
+```apache
+# Copy the entire .htaccess from the container, then add:
+<IfModule mod_rewrite.c>
+    RewriteEngine on
+    RewriteBase /backend
+    
+    # ... rest of rewrite rules
+</IfModule>
+```
+
+Apply changes:
+```bash
+docker compose restart providence
+```
+
+### Option 2: Bake into image (recommended for production)
+
+For production deployments, bake these settings into the Docker image for better performance and immutability:
+
+1. **Edit** `providence/setup.php` and add the protocol and URL root settings:
+   ```php
+   # Add after __CA_USE_CLEAN_URLS__:
+   if (!defined('__CA_URL_ROOT__')) { define('__CA_URL_ROOT__', '/backend'); }
+   if (!defined('__CA_SITE_PROTOCOL__')) { define('__CA_SITE_PROTOCOL__', 'https'); }
+   ```
+
+2. **Create** `providence/.htaccess`:
+   ```bash
+   # Copy from a running container
+   docker compose exec providence cat /var/www/providence/.htaccess > providence/.htaccess
+   ```
+   
+   Then edit it to add `RewriteBase /backend` in the mod_rewrite section.
+
+3. **Update** `providence/Dockerfile` to copy the .htaccess:
+   ```dockerfile
+   # Add before ENTRYPOINT:
+   COPY .htaccess /var/www/providence/.htaccess
+   ```
+
+4. **Rebuild and deploy:**
+   ```bash
+   docker compose build providence
+   docker compose up -d providence
+   ```
+
+5. **Remove** the override files (no longer needed):
+   ```bash
+   rm -f overrides/providence/setup.php overrides/providence/.htaccess
+   ```
+
+### Why this is necessary
+
+- **`__CA_SITE_PROTOCOL__`**: Providence auto-detects the protocol from `$_SERVER['HTTPS']`, but when behind a reverse proxy, it sees HTTP internally. Setting this explicitly ensures all generated URLs use `https://`.
+  
+- **`__CA_URL_ROOT__`**: Providence is served at `/backend/` (not root), so it must know this prefix to generate correct URLs for redirects, links, and assets.
+
+- **`RewriteBase`**: Apache's mod_rewrite needs to know the URL path prefix when rewriting URLs. Without this, clean URL routing breaks.
+
+**Verify the fix:**
+```bash
+curl -k -I https://your-domain.com/backend/
+# Should return: HTTP/2 302, location: /backend/index.php/system/auth/login
+
+curl -k -I https://your-domain.com/backend/index.php/system/auth/login
+# Should return: HTTP/2 200 (login page loads successfully)
+```
+
+---
+
 ## External host nginx (recommended)
 
 Your existing system nginx (or a VM-level nginx) terminates TLS with a real certificate, then proxies over plain HTTP to the Docker stack. This is the most common setup for VPS / bare-metal deployments.
@@ -229,6 +324,8 @@ server {
 ## Production hardening checklist
 
 ```
+[ ] Configure SSL settings in Providence (see "Required: CollectiveAccess SSL Configuration" above)
+[ ] Bake SSL config into image rather than using overrides (for production)
 [ ] Change ALL default passwords in .env
 [ ] Set MEDIA_PATH to an absolute path with a real backup strategy
 [ ] Set TZ to your local timezone

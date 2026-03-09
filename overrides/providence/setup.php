@@ -31,6 +31,14 @@ date_default_timezone_set(getenv('TZ') ?: 'UTC');
 # /var/www/providence/.htaccess to: RewriteBase /backend
 if (!defined('__CA_USE_CLEAN_URLS__')) { define('__CA_USE_CLEAN_URLS__', 0); }
 
+# URL root path (the subdirectory under which CA is served)
+# Since Providence is served under /backend/ via nginx proxy, set this explicitly
+if (!defined('__CA_URL_ROOT__')) { define('__CA_URL_ROOT__', '/backend'); }
+
+# Protocol (http or https)
+# When running behind a reverse proxy with SSL termination, set this to https
+if (!defined('__CA_SITE_PROTOCOL__')) { define('__CA_SITE_PROTOCOL__', 'https'); }
+
 # Cache — Redis
 if (!defined('__CA_CACHE_BACKEND__')) { define('__CA_CACHE_BACKEND__', getenv('CA_CACHE_BACKEND') ?: 'redis'); }
 if (!defined('__CA_REDIS_HOST__'))    { define('__CA_REDIS_HOST__',    getenv('CA_REDIS_HOST')    ?: 'redis'); }

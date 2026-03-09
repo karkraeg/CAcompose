@@ -144,3 +144,20 @@ Clean URLs are **disabled by default** (`__CA_USE_CLEAN_URLS__ = 0`). To enable:
    ```bash
    docker compose restart providence
    ```
+
+### "Too many redirects" error when accessing Providence
+
+This occurs when Providence doesn't know it's behind an SSL-terminating reverse proxy, causing it to redirect HTTPS requests to HTTPS in an infinite loop.
+
+**Solution:** Configure the SSL and URL settings for Providence.
+
+See the [Production Deployment guide](production.md#required-collectiveaccess-ssl-configuration) for complete instructions on both the quick override approach and the production image-baking approach.
+
+**Quick verification:**
+```bash
+curl -k -I https://127.0.0.1/backend/
+# Should return: HTTP/2 302, location: /backend/index.php/system/auth/login
+
+curl -k -I https://127.0.0.1/backend/index.php/system/auth/login
+# Should return: HTTP/2 200 (not another redirect)
+```
