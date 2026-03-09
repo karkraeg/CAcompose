@@ -57,12 +57,20 @@ overrides/providence/setup.php
 
 ### Applying overrides after change
 
-Overrides are applied at container **start**. A restart is sufficient (no rebuild needed):
+Overrides are applied at container **start**, so changes require restarting the container:
 
 ```bash
 docker compose restart providence
 # or
 docker compose restart pawtucket2
+```
+
+**However**, if you also changed environment variables in `.env` (like `CA_PAWTUCKET2_THEME`), you must **recreate** the container instead:
+
+```bash
+docker compose up -d providence
+# or
+docker compose up -d pawtucket2
 ```
 
 Verify the copy happened:
@@ -91,7 +99,7 @@ Pawtucket2 ships with a `default` theme. Custom themes live in `themes/<theme-na
    overrides/pawtucket2/themes/mytheme/
    ├── conf/
    │   └── theme.conf        ← theme metadata
-   ├── views/                ← Smarty templates (.tpl files)
+   ├── views/                ← templates
    │   ├── Browse/
    │   ├── Detail/
    │   └── ...
@@ -106,10 +114,12 @@ Pawtucket2 ships with a `default` theme. Custom themes live in `themes/<theme-na
    CA_PAWTUCKET2_THEME=mytheme
    ```
 
-4. Restart Pawtucket2:
+4. Recreate the Pawtucket2 container to apply the environment variable change:
    ```bash
-   docker compose restart pawtucket2
+   docker compose up -d pawtucket2
    ```
+   
+   **Note:** Environment variable changes require recreating the container with `up -d`, not just `restart`.
 
 ---
 

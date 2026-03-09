@@ -10,10 +10,12 @@ Typing the full path every time is tedious. Add a shell alias for the current pr
 
 ```bash
 # Paste into your shell session, or add to ~/.zshrc / ~/.bashrc
-alias cautils='docker compose exec providence php /var/www/providence/support/bin/caUtils'
+alias cautils='docker compose exec -T providence php /var/www/providence/support/bin/caUtils'
 ```
 
-Then all examples below can be shortened, e.g. `cautils help`.
+The `-T` flag disables TTY allocation, which is required when piping input (`<`) or output to caUtils commands.
+
+Then all examples below can be shortened, e.g. `cautils help` or `cautils load-import-mapping < file.xlsx`.
 
 > The alias only works when your working directory is the project root (where `docker-compose.yml` lives), because `docker compose` resolves the project from the current directory.
 
@@ -24,8 +26,7 @@ Many caUtils commands read from a file. Two patterns work:
 **1. Pipe via stdin** — use `-T` to disable TTY allocation, then redirect with `<`:
 
 ```bash
-docker compose exec -T providence \
-  php /var/www/providence/support/bin/caUtils import-data \
+cautils import-data \
     --format=XLSX --target=ca_objects --mapping=my_mapping \
   < /path/on/host/data.xlsx
 ```
@@ -35,8 +36,7 @@ docker compose exec -T providence \
 ```bash
 docker compose cp /path/on/host/data.xlsx providence:/tmp/data.xlsx
 
-docker compose exec providence \
-  php /var/www/providence/support/bin/caUtils import-data \
+cautils import-data \
     --format=XLSX --target=ca_objects --mapping=my_mapping \
     --source=/tmp/data.xlsx
 
@@ -50,24 +50,20 @@ docker compose exec providence rm /tmp/data.xlsx
 
 ```bash
 # List every available command with a one-line description
-docker compose exec providence \
-  php /var/www/providence/support/bin/caUtils help
+cautils help
 
 # Full help for a specific command (options, flags, examples)
-docker compose exec providence \
-  php /var/www/providence/support/bin/caUtils help import-data
+cautils help import-data
 ```
 
 #### Search index
 
 ```bash
 # Rebuild the entire search index (run after bulk imports or data migrations)
-docker compose exec providence \
-  php /var/www/providence/support/bin/caUtils rebuild-search-index
+cautils rebuild-search-index
 
 # Rebuild index for a single table only
-docker compose exec providence \
-  php /var/www/providence/support/bin/caUtils rebuild-search-index \
+cautils rebuild-search-index \
     --table=ca_objects
 ```
 
@@ -75,55 +71,47 @@ docker compose exec providence \
 
 ```bash
 # Process the background task queue (media transcoding, derivative generation, etc.)
-docker compose exec providence \
-  php /var/www/providence/support/bin/caUtils process-task-queue
+cautils process-task-queue
 
 # Check media files for missing or broken derivatives
-docker compose exec providence \
-  php /var/www/providence/support/bin/caUtils check-media \
+cautils check-media \
     --table=ca_objects
 
 # Regenerate all media derivatives (thumbnails, previews) for a table
-docker compose exec providence \
-  php /var/www/providence/support/bin/caUtils reload-object-checksums \
+cautils reload-object-checksums \
     --table=ca_objects --regenerate-derivatives
 ```
 
 #### Importing data
 
 ```bash
-# Import from an Excel file
-docker compose exec -T providence \
-  php /var/www/providence/support/bin/caUtils import-data \
+# Load/update an import mapping from an Excel file
+# Use the import directory (already mounted - easiest method):
+cp /path/to/mapping.xlsx ./import/
+cautils load-import-mapping -f /var/www/providence/import/mapping.xlsx
+
+# Or copy directly into the container:
+docker compose cp /path/to/mapping.xlsx providence:/tmp/mapping.xlsx
+cautils load-import-mapping -f /tmp/mapping.xlsx
+
+# Import from an Excel file using a mapping
+cautils import-data \
     --format=XLSX \
-    --target=ca_objects \
     --mapping=my_mapping_code \
-  < /path/to/data.xlsx
+    -s /var/www/providence/import/my_data.xlsx
 
 # Import from a CSV file
-docker compose exec -T providence \
-  php /var/www/providence/support/bin/caUtils import-data \
+cautils import-data \
     --format=CSV \
-    --target=ca_objects \
     --mapping=my_mapping_code \
-  < /path/to/data.csv
-
-# Import MARC records
-docker compose exec -T providence \
-  php /var/www/providence/support/bin/caUtils import-data \
-    --format=MARC21 \
-    --target=ca_objects \
-    --mapping=my_mapping_code \
-  < /path/to/records.mrc
+    -s /var/www/providence/import/my_data.xlsx
 
 # Import with verbose output (useful for debugging a mapping)
-docker compose exec -T providence \
-  php /var/www/providence/support/bin/caUtils import-data \
+cautils import-data \
     --format=XLSX \
-    --target=ca_objects \
     --mapping=my_mapping_code \
     --log-level=DEBUG \
-  < /path/to/data.xlsx
+    -s /var/www/providence/import/my_data.xlsx
 ```
 
 Supported `--format` values include: `XLSX`, `XLS`, `CSV`, `TAB`, `MARC21`, `MARCXML`, `OAI_DC`, `RDF`, `JSON`, `CollectiveAccessXML`, and more. Run `cautils help import-data` for the complete list.
@@ -132,11 +120,9 @@ Supported `--format` values include: `XLSX`, `XLS`, `CSV`, `TAB`, `MARC21`, `MAR
 
 ```bash
 # Export all objects to CSV (file written inside the container)
-docker compose exec providence \
-  php /var/www/providence/support/bin/caUtils export-data \
-    --target=ca_objects \
+cautils export-data \
     --format=CSV \
-    --filename=/tmp/objects-export.csv
+    --filename=/var/www/providence/import/objects-export.csv
 
 # Copy the result out to the host
 docker compose cp providence:/tmp/objects-export.csv ./objects-export.csv
@@ -146,14 +132,12 @@ docker compose cp providence:/tmp/objects-export.csv ./objects-export.csv
 
 ```bash
 # Search for records and print a summary
-docker compose exec providence \
-  php /var/www/providence/support/bin/caUtils find \
+cautils find \
     --table=ca_objects \
     --search="venice"
 
 # Find a specific record by ID
-docker compose exec providence \
-  php /var/www/providence/support/bin/caUtils find \
+cautils find \
     --table=ca_objects \
     --id=42
 ```
@@ -162,8 +146,7 @@ docker compose exec providence \
 
 ```bash
 # Create a new administrator account
-docker compose exec providence \
-  php /var/www/providence/support/bin/caUtils create-login \
+cautils create-login \
     --username=newuser \
     --password=s3cret \
     --email=newuser@example.com \
@@ -172,8 +155,7 @@ docker compose exec providence \
     --roles=administrator
 
 # Reset a forgotten password
-docker compose exec providence \
-  php /var/www/providence/support/bin/caUtils reset-password \
+cautils reset-password \
     --username=admin \
     --password=newpassword
 ```
@@ -182,17 +164,14 @@ docker compose exec providence \
 
 ```bash
 # Check database structure and report problems
-docker compose exec providence \
-  php /var/www/providence/support/bin/caUtils repair-database
+cautils repair-database
 
 # Find and report duplicate labels
-docker compose exec providence \
-  php /var/www/providence/support/bin/caUtils check-for-duplicate-labels \
+cautils check-for-duplicate-labels \
     --table=ca_objects
 
 # Permanently remove records that were soft-deleted
-docker compose exec providence \
-  php /var/www/providence/support/bin/caUtils remove-deleted-records \
+cautils remove-deleted-records \
     --table=ca_objects
 ```
 
