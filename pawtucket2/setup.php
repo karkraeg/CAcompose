@@ -16,7 +16,7 @@ if (!defined('__CA_DB_PASSWORD__')) { define('__CA_DB_PASSWORD__', getenv('CA_DB
 if (!defined('__CA_DB_DATABASE__')) { define('__CA_DB_DATABASE__', getenv('CA_DB_DATABASE') ?: '');     }
 
 # Application identity
-if (!defined('__CA_APP_NAME__'))         { define('__CA_APP_NAME__',         'collectiveaccess'); }
+if (!defined('__CA_APP_NAME__'))         { define('__CA_APP_NAME__',         getenv('CA_APP_NAME') ?: 'collectiveaccess'); }
 if (!defined('__CA_APP_DISPLAY_NAME__')) { define('__CA_APP_DISPLAY_NAME__', getenv('CA_APP_DISPLAY_NAME') ?: 'My CollectiveAccess'); }
 if (!defined('__CA_ADMIN_EMAIL__'))      { define('__CA_ADMIN_EMAIL__',      getenv('CA_ADMIN_EMAIL')      ?: 'admin@example.com');  }
 

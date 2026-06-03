@@ -116,5 +116,5 @@ See **[Documentation.md](Documentation.md)** for the full reference:
 
 ## Notes
 
-- First build clones both CA repos from GitHub and runs `composer install` — expect some time to build.
+- First build clones both CA repos from GitHub and runs `composer update` — expect some time to build. (`composer update` is used instead of `install` because CA upstream ships an inconsistent lock file.)
 - Pin `CA_PROVIDENCE_VERSION` and `CA_PAWTUCKET2_VERSION` in `.env` to a release tag (e.g. `2.0.2`) for reproducible builds.

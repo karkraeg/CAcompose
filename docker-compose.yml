@@ -57,6 +57,7 @@ services:
       CA_REDIS_HOST:       ${CA_REDIS_HOST:-redis}
       CA_REDIS_PORT:       ${CA_REDIS_PORT:-6379}
       CA_REDIS_DB:         ${CA_PROVIDENCE_REDIS_DB:-0}
+      CA_APP_NAME:         ${CA_APP_NAME:-collectiveaccess}
       TZ:                  ${TZ:-UTC}
     volumes:
       # ── Persistent runtime data (outside the container) ─────────────────────
@@ -102,6 +103,7 @@ services:
       CA_REDIS_PORT:       ${CA_REDIS_PORT:-6379}
       CA_REDIS_DB:         ${CA_PAWTUCKET2_REDIS_DB:-1}
       CA_PAWTUCKET2_THEME: ${CA_PAWTUCKET2_THEME:-default}
+      CA_APP_NAME:         ${CA_APP_NAME:-collectiveaccess}
       TZ:                  ${TZ:-UTC}
     volumes:
       # ── Persistent runtime data ──────────────────────────────────────────────
@@ -120,8 +122,8 @@ services:
     image: nginx:alpine
     restart: unless-stopped
     ports:
-      - "127.0.0.1:443:443"   # HTTPS
-      - "127.0.0.1:80:80"     # HTTP → redirects to HTTPS
+      - "0.0.0.0:443:443"   # HTTPS
+      - "0.0.0.0:80:80"     # HTTP → redirects to HTTPS
     depends_on:
       - providence
       - pawtucket2

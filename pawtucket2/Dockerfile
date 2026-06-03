@@ -86,9 +86,11 @@ RUN git clone --depth=1 --branch="${CA_VERSION}" \
 
 WORKDIR /var/www/pawtucket2
 
+# composer update instead of install: CA upstream ships an inconsistent lock
+# file that causes 'install' to fail. 'update' re-resolves dependencies fresh.
 RUN COMPOSER_ALLOW_SUPERUSER=1 \
     composer config --global audit.block-insecure false \
-    && composer install \
+    && composer update \
         --no-dev \
         --optimize-autoloader \
         --no-interaction \

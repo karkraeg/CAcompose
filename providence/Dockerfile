@@ -105,9 +105,11 @@ WORKDIR /var/www/providence
 # Disable Composer 2.7+ security-advisory blocking during resolution; CA's
 # dependency tree (firebase/php-jwt via google/auth) hits known advisories
 # that are acceptable in this deployment context.
+# composer update instead of install: CA upstream ships an inconsistent lock
+# file that causes 'install' to fail. 'update' re-resolves dependencies fresh.
 RUN COMPOSER_ALLOW_SUPERUSER=1 \
     composer config --global audit.block-insecure false \
-    && composer install \
+    && composer update \
         --no-dev \
         --optimize-autoloader \
         --no-interaction \
